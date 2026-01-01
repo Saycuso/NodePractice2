@@ -6,6 +6,7 @@ const bcrypt = require("bcryptjs");
 const mongoose = require("mongoose");
 const auth = require("../middleware/auth");
 const cors = require('cors');
+const Cart = require('../models/Cart')
 
 app.use(express.json());
 app.use(cors());
@@ -98,6 +99,37 @@ app.get("/api/products", async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
+ 
+// Add to Cart (Protected)
+app.post('/api/cart', auth, async(req,res) => {
+  try{
+    const {productId, quantity = 1 } = req.body;
+    const userId = req.user.id;
+
+      let cart = await Cart.findOne({user: userId});
+
+      if(cart){
+        const itemIndex = cart.items.findIndex(item => item.product == productId);
+
+        if(itemIndex > -1){
+          cart.items[itemIndex].quantity += quantity;
+        } else {
+          cart.items.push({product: productId, quantity});
+        }
+        await cart.save();
+      }
+      else{
+        cart = await Cart.create({
+          user: userId,
+          items: [{product: productId, quantity}]
+        });
+      }
+      res.status(200).json(cart);
+  }
+  catch(error){
+    res.status(500).json({message: error.message})
+  }
+})
 
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
